@@ -22,6 +22,11 @@ BLUE = (0, 0, 255)
 YELLOW = (255, 255, 0)
 GRAY = (100, 100, 100)
 LIGHT_GREEN = (144, 238, 144)
+LIGHT_BLUE = (173, 216, 230)
+NEON_PURPLE = (148, 0, 211)
+DARK_PURPLE = (75, 0, 130)
+DARK_BLUE = (0, 0, 139)
+ORANGE = (255, 165, 0)
 
 # Note settings
 NOTE_WIDTH = 100
@@ -46,6 +51,7 @@ pressed_keys = set()
 score = 0
 health = 100
 flash_effects = []  # List to store flash effects
+particle_effects = []  # List to store particle effects
 
 # Note class
 class Note:
@@ -66,21 +72,44 @@ class Note:
 
 # Flash effect class
 class FlashEffect:
-    def __init__(self, x, y, width, height, color, duration):
-        self.rect = pygame.Rect(x, y, width, height)
+    def __init__(self, x, y, color, duration, max_radius):
+        self.x = x
+        self.y = y
         self.color = color
         self.duration = duration
+        self.max_radius = max_radius
         self.start_time = pygame.time.get_ticks()
 
     def draw(self):
         elapsed_time = pygame.time.get_ticks() - self.start_time
         if elapsed_time < self.duration:
+            radius = int((elapsed_time / self.duration) * self.max_radius)
             alpha = max(255 - int(255 * (elapsed_time / self.duration)), 0)
-            flash_surface = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
-            flash_surface.fill((*self.color, alpha))
-            screen.blit(flash_surface, self.rect)
+            surface = pygame.Surface((self.max_radius * 2, self.max_radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(surface, (*self.color, alpha), (self.max_radius, self.max_radius), radius)
+            screen.blit(surface, (self.x - self.max_radius, self.y - self.max_radius))
         else:
             flash_effects.remove(self)
+
+# Particle effect class
+class Particle:
+    def __init__(self, x, y, color, lifetime):
+        self.x = x
+        self.y = y
+        self.color = color
+        self.lifetime = lifetime
+        self.creation_time = pygame.time.get_ticks()
+        self.velocity = [random.uniform(-2, 2), random.uniform(-2, -1)]
+
+    def update(self):
+        self.x += self.velocity[0]
+        self.y += self.velocity[1]
+
+    def draw(self):
+        if pygame.time.get_ticks() - self.creation_time < self.lifetime:
+            pygame.draw.circle(screen, self.color, (int(self.x), int(self.y)), 3)
+        else:
+            particle_effects.remove(self)
 
 # Create notes dynamically based on song length and rhythm
 def generate_notes():
@@ -105,6 +134,7 @@ pygame.mixer.music.play()
 running = True
 start_ticks = pygame.time.get_ticks()
 while running:
+    # Fill screen with black background
     screen.fill(BLACK)
 
     # Event handling
@@ -122,14 +152,19 @@ while running:
     for lane in lanes:
         pygame.draw.rect(screen, WHITE, (lane - NOTE_WIDTH // 2, 0, NOTE_WIDTH, SCREEN_HEIGHT), 1)
 
-    # Draw target lines
+    # Draw target lines with a glow effect
     for lane in lanes:
-        pygame.draw.line(screen, RED, (lane - NOTE_WIDTH // 2, SCREEN_HEIGHT - 100), (lane + NOTE_WIDTH // 2, SCREEN_HEIGHT - 100), 2)
+        pygame.draw.line(screen, NEON_PURPLE, (lane - NOTE_WIDTH // 2, SCREEN_HEIGHT - 100), (lane + NOTE_WIDTH // 2, SCREEN_HEIGHT - 100), 4)
+        pygame.draw.line(screen, DARK_PURPLE, (lane - NOTE_WIDTH // 2, SCREEN_HEIGHT - 98), (lane + NOTE_WIDTH // 2, SCREEN_HEIGHT - 98), 2)
 
     # Highlight pressed keys
     for i, key in enumerate(keys):
         if key in pressed_keys:
             pygame.draw.rect(screen, GRAY, (lanes[i] - NOTE_WIDTH // 2, SCREEN_HEIGHT - 100, NOTE_WIDTH, NOTE_HEIGHT))
+
+    # Draw progress bar
+    progress = (pygame.time.get_ticks() - start_ticks) / music_length
+    pygame.draw.rect(screen, ORANGE, (50, 570, int(700 * progress), 10))
 
     # Spawn notes based on timing
     current_time = pygame.time.get_ticks() - start_ticks
@@ -155,12 +190,19 @@ while running:
                 if note.lane == i and target_zone.colliderect(note.rect):
                     active_notes.remove(note)
                     score += 10
-                    flash_effects.append(FlashEffect(target_zone.x, target_zone.y, target_zone.width, target_zone.height, BLUE, 200))
+                    flash_effects.append(FlashEffect(target_zone.centerx, target_zone.centery, BLUE, 400, 150))
+                    for _ in range(10):
+                        particle_effects.append(Particle(target_zone.centerx, target_zone.centery, YELLOW, 500))
                     break
 
     # Draw flash effects
     for flash in flash_effects:
         flash.draw()
+
+    # Draw particle effects
+    for particle in particle_effects:
+        particle.update()
+        particle.draw()
 
     # Display score and health
     score_text = font.render(f"Score: {score}", True, WHITE)
