@@ -21,6 +21,7 @@ GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
 YELLOW = (255, 255, 0)
 GRAY = (100, 100, 100)
+LIGHT_GREEN = (144, 238, 144)
 
 # Note settings
 NOTE_WIDTH = 100
@@ -44,18 +45,42 @@ active_notes = []  # List of active notes as Note objects
 pressed_keys = set()
 score = 0
 health = 100
+flash_effects = []  # List to store flash effects
 
 # Note class
 class Note:
     def __init__(self, x, y, lane):
         self.rect = pygame.Rect(x, y, NOTE_WIDTH, NOTE_HEIGHT)
         self.lane = lane
+        self.color = LIGHT_GREEN
 
     def update(self):
         self.rect.y += NOTE_SPEED
 
     def draw(self):
-        pygame.draw.rect(screen, GREEN, self.rect)
+        gradient_rect = pygame.Surface((NOTE_WIDTH, NOTE_HEIGHT), pygame.SRCALPHA)
+        for i in range(NOTE_HEIGHT):
+            color = (self.color[0], self.color[1], self.color[2], 255 - int(255 * (i / NOTE_HEIGHT)))
+            pygame.draw.line(gradient_rect, color, (0, i), (NOTE_WIDTH, i))
+        screen.blit(gradient_rect, (self.rect.x, self.rect.y))
+
+# Flash effect class
+class FlashEffect:
+    def __init__(self, x, y, width, height, color, duration):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.color = color
+        self.duration = duration
+        self.start_time = pygame.time.get_ticks()
+
+    def draw(self):
+        elapsed_time = pygame.time.get_ticks() - self.start_time
+        if elapsed_time < self.duration:
+            alpha = max(255 - int(255 * (elapsed_time / self.duration)), 0)
+            flash_surface = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
+            flash_surface.fill((*self.color, alpha))
+            screen.blit(flash_surface, self.rect)
+        else:
+            flash_effects.remove(self)
 
 # Create notes dynamically based on song length and rhythm
 def generate_notes():
@@ -130,8 +155,12 @@ while running:
                 if note.lane == i and target_zone.colliderect(note.rect):
                     active_notes.remove(note)
                     score += 10
-                    pygame.draw.rect(screen, BLUE, target_zone)  # Highlight successful hit
+                    flash_effects.append(FlashEffect(target_zone.x, target_zone.y, target_zone.width, target_zone.height, BLUE, 200))
                     break
+
+    # Draw flash effects
+    for flash in flash_effects:
+        flash.draw()
 
     # Display score and health
     score_text = font.render(f"Score: {score}", True, WHITE)
