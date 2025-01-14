@@ -42,3 +42,7 @@ Parametry gry:
 
 Tempo gry można dostosować, zmieniając zmienną NOTE_SPEED oraz wartość BPM w funkcji generate_notes.
 Gra została zaprojektowana jako w pełni modyfikowalna i możliwa do rozbudowy – na przykład o nowe funkcje, poziomy trudności czy zaawansowaną synchronizację z rytmem muzyki.
+
+
+https://github.com/user-attachments/assets/79ab63ea-6119-427a-ab8b-64d74bd942fe
+
